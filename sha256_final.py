@@ -39,13 +39,40 @@ def sigma_0(x: int):
 def sigma_1(x: int):
     return rot_right(x,17) ^ rot_right(x,19) ^( x >> 10 )
 
+# Padding und Längenberechnung für SHA-256
+def pad_message(message):
+    # Nachricht in Bytes konvertieren
+    message_byte = bytearray(message, 'ascii')
+    length = len(message_byte) * 8
+    
+    # Padding: 1-Bit anhängen, gefolgt von 0-Bits
+    message_byte.append(0x80)  # 0x80 entspricht einem Bit '1' gefolgt von 7 '0'-Bits
+    
+    # Füge so viele 0-Bytes hinzu, bis die Nachricht 448 Bits lang ist (56 Bytes)
+    while (len(message_byte) * 8) % 512 != 448:
+        message_byte.append(0x00)
+    
+    # Füge die ursprüngliche Nachrichtenlänge als 64-Bit-Wert an (Big Endian)
+    message_byte += length.to_bytes(8, byteorder='big')
+    
+    return message_byte
+
+def process_blocks(padded_message):
+    blocks = []
+    
+    # Zerlege die gepolsterte Nachricht in 512-Bit-Blöcke (64 Bytes pro Block)
+    for i in range(0, len(padded_message), 64):
+        blocks.append(padded_message[i:i+64])
+    
+    return blocks
+
 # Die ersten 64 Primzahlen. Diese habe ich aus dem Internet.
 first_64_prime_numbers = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311]
 
 print("### WILLKOMMEN BEI SHA-256 ####")
 print()
 # Benutzer zur Eingabe auffordern
-message = input("Geben Sie ihren Text einen welcher verschlüsselt werden soll.")
+message = input("Geben Sie ihren Text einen welcher verschlüsselt werden soll: ")
 message = message.strip()
 # Berechnung der Hash-Werte für IV initialisierung.
 compression_constants = []
@@ -93,34 +120,16 @@ print(f'Die Länge deiner Nachricht beträgt {len_bin_message} bits.')
 time.sleep(2)
 clear_console()
 
-# Die Längenangabe muss exakt 64 Bit belegen. 
-# Wir wandeln sie also auch in eine binäre Zahl um hängen vorne 
-# Nullen ran um genau 64 Stellen zu erhalten:
-rest_to_64 = 64 - len(bin(len_bin_message)[2:])
-bin_message_len = '0' * rest_to_64 + bin(len_bin_message)[2:]
+print("Padding...")
+time.sleep(1)
+padded_message = pad_message(message)
+print(f'Padded message in hex: {padded_message.hex()}')
 
-# Auf 512 bits bringen = Nachricht + 1 als Trennzeichen
-payload = bin_message + '1' + bin_message_len
-len_payload = len(payload)
-pad_string = int(512 - (len_payload % 512))
-full_message = bin_message + '1' + ('0' * pad_string) + bin_message_len
+blocks = process_blocks(padded_message)
+print(f'Anzahl der 512-Bit-Blöcke: {len(blocks)}')
+
 time.sleep(1)
 clear_console()
-
-# Das konvertieren der Nachricht von bits in Bytearray
-full_message_bytes = bytearray(int(full_message[i:i+8], 2) for i in range(0, len(full_message), 8))
-
-# Ausgabe des `bytearray`
-print("Konvertierung von Bit in Bytearray...")
-print(f'Vollständige Nachricht in bits: {full_message}')
-print(f'Vollständige Nachricht in ByteArray: {full_message_bytes}')
-time.sleep(2)
-clear_console()
-
-# Erstellung von Blocks für die Nachricht.
-blocks = []
-for i in range(0, len(bin_message_len), 64): # 64 Bytes sind 512 Bits
-    blocks.append(full_message_bytes[i:i+64]) # 64 Bytes / 512 Bits als einzelnen BLock aufnehmen
 
 # Jeden Block separate bearbeiten
 for block in blocks:
@@ -201,12 +210,11 @@ for i in range(8):
 # Die 8 Werte müssen nun konkatiniert werden.    
 hash_value = b''.join(constant.to_bytes(4, 'big') for constant in compression_constants[:8])
 
-
 print(f'Dein Hash sieht folgendermaßen aus: {hash_value.hex()}')
 
 print()
 import hashlib
-# SHA-256 Verschlüsselung eines leeren Strings
+# SHA-256 Verschlüsselung 
 hash_object = hashlib.sha256(message.encode())
 sha256_hash = hash_object.hexdigest()
 print(f'Gegenprüfung mit hashlib: {sha256_hash}')
